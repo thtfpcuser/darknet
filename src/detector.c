@@ -1323,6 +1323,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
     
     image_dir_generate_paths( filename );
     image_count = image_dir_get_paths_count();
+    image_dir_result_file_print("result begin\n");
     
     for(image_i = 0; image_i < image_count; ++image_i) {
 #if 0
@@ -1361,6 +1362,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         //network_predict_image(&net, im); letterbox = 1;
         printf("%s: Predicted in %lf milli-seconds.\n", input, ((double)get_time_point() - time) / 1000);
         //printf("%s: Predicted in %f seconds.\n", input, (what_time_is_it_now()-time));
+        image_dir_result_file_print("image,%s,predicted in ms,%lf,", input,
+            (get_time_point() - time) / 1000.0);
 
         int nboxes = 0;
         detection *dets = get_network_boxes(&net, im.w, im.h, thresh, hier_thresh, 0, 1, &nboxes, letter_box);
@@ -1420,7 +1423,11 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
 #if 0
         if (filename) break;
 #endif
+        image_dir_result_file_print("\n");
     }
+
+    image_dir_result_file_print("result end\n");
+    image_dir_release_paths();
 
     if (outfile) {
         char *tmp = "\n]";

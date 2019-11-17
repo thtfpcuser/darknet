@@ -165,6 +165,10 @@ public:
         {
             m_image_output_path = value.c_str();
         }
+        else if ("IMAGE_RESULT_FILE" == key)
+        {
+            m_image_result_file = value.c_str();
+        }
         else
         {
             ret = -1;
@@ -269,6 +273,86 @@ public:
         return ret;
     }
 
+    int image_result_file_open(void)
+    {
+        int ret = -1;
+
+        for (;;)
+        {
+            if (NULL != m_image_result_file_fh)
+            {
+                ret = 0;
+                break;
+            }
+
+            std::string file_path, file_dir_path;
+            file_path = m_image_result_file;
+
+            size_t i, pos;
+            for (i = 0; i < file_path.size(); ++i)
+            {
+                if (file_path[i] == '\\')
+                {
+                    file_path[i] = '/';
+                }
+            }
+
+            pos = file_path.rfind('/');
+
+            if (pos != std::string::npos)
+            {
+                file_dir_path = file_path.substr(0, pos);
+
+                if (false == cv::utils::fs::exists(file_dir_path))
+                {
+                    if (false == cv::utils::fs::createDirectories(file_dir_path))
+                    {
+                        printf( "[image_opencv] cannot create dir %s \n", file_dir_path.c_str() );
+                        break;
+                    }
+                }
+            }
+
+            m_image_result_file_fh = fopen(file_path.c_str(), "a");
+
+            if (NULL == m_image_result_file_fh)
+            {
+                printf( "[image_opencv] cannot create file %s \n", file_path.c_str() );
+                break;
+            }
+            ret = 0;
+
+            break;
+        }
+
+        return ret;
+    }
+
+    int image_result_file_close(void)
+    {
+        int ret = 0;
+
+        if (NULL != m_image_result_file_fh)
+        {
+            ret = fclose(m_image_result_file_fh);
+            m_image_result_file_fh = NULL;
+        }
+
+        return ret;
+    }
+
+    int image_result_file_print(const char * format_str, va_list val)
+    {
+        int ret = 0;
+
+        if (NULL != m_image_result_file_fh)
+        {
+            ret = vfprintf(m_image_result_file_fh, format_str, val);
+        }
+
+        return ret;
+    }
+
     const std::string & get_image_input_path(void)
     {
         return m_image_input_path;
@@ -300,18 +384,22 @@ private:
 	{
         m_image_input_path = "./";
         m_image_output_path = "./";
+        m_image_result_file = "./result.txt";
         m_file_name_list.resize( 0 );
         m_image_input_list.resize( 0 );
         m_image_output_list.resize( 0 );
+        m_image_result_file_fh = NULL;
 	}
 
 	std::string m_image_input_path;
     std::string m_image_output_path;
+    std::string m_image_result_file;
     
     std::vector< cv::String > m_file_name_list;
     
     std::vector< std::string > m_image_input_list;
     std::vector< std::string > m_image_output_list;
+    FILE * m_image_result_file_fh;
 };
 
 static Config sg_config;
@@ -1565,6 +1653,13 @@ int image_dir_generate_paths( const char * image_cfg )
         {
             break;
         }    
+
+        status = sg_config.image_result_file_open();
+
+        if (0 != status)
+        {
+            break;
+        }
         
         ret = 0;
         break;
@@ -1576,6 +1671,8 @@ int image_dir_generate_paths( const char * image_cfg )
 int image_dir_release_paths( void )
 {
     int ret = 0;
+
+    ret = sg_config.image_result_file_close();
     
     ret = sg_config.unload();
     
@@ -1606,6 +1703,18 @@ const char * image_dir_get_output_path( int index )
     
     ret = sg_config.get_image_output_list( index ).c_str();
     
+    return ret;
+}
+
+int image_dir_result_file_print(const char * format_str, ...)
+{
+    int ret = 0;
+
+    va_list val;
+    va_start(val, format_str);
+    ret = sg_config.image_result_file_print(format_str, val);
+    va_end(val);
+
     return ret;
 }
 

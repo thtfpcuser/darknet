@@ -109,6 +109,7 @@ int image_dir_release_paths( void );
 int image_dir_get_paths_count( void );
 const char * image_dir_get_input_path( int index );
 const char * image_dir_get_output_path( int index );
+int image_dir_result_file_print( const char * format_str, ... );
 
 #else   // OPENCV
 
