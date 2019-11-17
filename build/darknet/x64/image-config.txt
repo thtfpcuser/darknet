@@ -1,0 +1,2 @@
+IMAGE_INPUT_PATH=D:\image_input_path\
+IMAGE_OUTPUT_PATH=D:\image_output_path\

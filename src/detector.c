@@ -17,6 +17,7 @@ typedef __compar_fn_t comparison_fn_t;
 #endif
 
 #include "http_stream.h"
+#include "image_opencv.h"
 
 int check_mistakes = 0;
 
@@ -1317,7 +1318,14 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
     }
     int j;
     float nms = .45;    // 0.4F
-    while (1) {
+    int image_count = 0;
+    int image_i = 0;
+    
+    image_dir_generate_paths( filename );
+    image_count = image_dir_get_paths_count();
+    
+    for(image_i = 0; image_i < image_count; ++image_i) {
+#if 0
         if (filename) {
             strncpy(input, filename, 256);
             if (strlen(input) > 0)
@@ -1330,6 +1338,9 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             if (!input) break;
             strtok(input, "\n");
         }
+#endif
+        memset(buff, 0, sizeof(buff));
+        strncpy( buff, image_dir_get_input_path(image_i), sizeof(buff) - 1 );
         //image im;
         //image sized = load_image_resize(input, net.w, net.h, net.c, &im);
         image im = load_image(input, 0, 0, net.c);
@@ -1355,7 +1366,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         detection *dets = get_network_boxes(&net, im.w, im.h, thresh, hier_thresh, 0, 1, &nboxes, letter_box);
         if (nms) do_nms_sort(dets, nboxes, l.classes, nms);
         draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output);
-        save_image(im, "predictions");
+        save_image(im, image_dir_get_output_path(image_i));
         if (!dont_show) {
             show_image(im, "predictions");
         }
@@ -1406,8 +1417,9 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             wait_until_press_key_cv();
             destroy_all_windows_cv();
         }
-
+#if 0
         if (filename) break;
+#endif
     }
 
     if (outfile) {

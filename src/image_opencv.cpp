@@ -19,6 +19,7 @@
 
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
+#include <opencv2/core/utils/filesystem.hpp>
 
 // includes for OpenCV >= 3.x
 #ifndef CV_VERSION_EPOCH
@@ -75,6 +76,245 @@ using std::endl;
 #ifndef CV_AA
 #define CV_AA cv::LINE_AA
 #endif
+
+class Config {
+public:
+    Config(void)
+    {
+        reset();
+    }
+
+    ~Config(void)
+    {
+    }
+
+    int load_from_file(const char * file_path)
+    {
+        int ret = -1;
+        char config_buffer[1024] = { 0 };
+
+        for (;;)
+        {
+            FILE * fh = fopen(file_path, "r");
+
+            if (NULL == fh)
+            {
+                printf("cannot load file %s \n", file_path);
+                break;
+            }
+
+            do
+            {
+                if (NULL == fgets(config_buffer, sizeof(config_buffer) - 1, fh))
+                {
+                    break;
+                }
+
+                parse_line(config_buffer);
+
+            } while (true);
+
+            fclose(fh);
+
+            ret = 0;
+
+            break;
+        }
+
+        return ret;
+    }
+    
+    int unload( void )
+    {
+        reset();
+        
+        return 0;
+    }
+
+    int parse_line(const char * config_buffer)
+    {
+        int ret = 0;
+        size_t pos = -1;
+
+        std::string config_str = config_buffer;
+        std::string key, value;
+
+        if (config_buffer[0] == '#')
+        {
+            return -1;
+        }
+
+        pos = config_str.find('=');
+
+        if (std::string::npos == pos)
+        {
+            return -1;
+        }
+
+        key = config_str.substr(0, pos - 0);
+        value = config_str.substr(pos + 1, std::string::npos);
+
+        trim(key);
+        trim(value);
+
+        if ("IMAGE_INPUT_PATH" == key)
+        {
+            m_image_input_path = value.c_str();
+        }
+        else if ("IMAGE_OUTPUT_PATH" == key)
+        {
+            m_image_output_path = value.c_str();
+        }
+        else
+        {
+            ret = -1;
+        }
+
+        return ret;
+    }
+
+    void trim(std::string & str)
+    {
+        std::string lstr;
+        size_t i, start = 0, end = 0;
+
+        for (i = 0; i < str.size(); ++i)
+        {
+            if (!isspace((unsigned char)str[i]))
+            {
+                start = i;
+                break;
+            }
+        }
+
+        for (i = str.size() - 1; i > start; --i)
+        {
+            if (!isspace((unsigned char)str[i]))
+            {
+                end = i;
+                break;
+            }
+        }
+
+        lstr = str.substr(start, end - start + 1);
+
+        str = lstr;
+
+        return;
+    }
+    
+    int gen_file_lists( void )
+    {
+        int ret = -1;
+        
+        for(;;)
+        {
+            if (false == cv::utils::fs::exists( cv::String(m_image_output_path) ))
+            {
+                if (false == cv::utils::fs::createDirectories( cv::String(m_image_output_path) ))
+                {
+                    break;
+                }    
+            }
+            
+            if (0 != glob_file())
+            {
+                break;
+            }
+            
+            m_image_input_list.resize( 0 );
+            m_image_output_list.resize( 0 );
+            cv::String str;
+            
+            size_t count = 0;
+            
+            for (count = 0; count < m_file_name_list.size(); ++count)
+            {
+                str = cv::utils::fs::join( cv::String(m_image_input_path), m_file_name_list[count] );
+                m_image_input_list.push_back( std::string(str) );
+                
+                str = cv::utils::fs::join( cv::String(m_image_output_path), m_file_name_list[count] );
+                m_image_output_list.push_back( std::string(str) );
+            }
+            
+            ret = 0;
+            break;
+        }
+        
+        return ret;
+    }
+    
+    int glob_file( void )
+    {
+        int ret = 0;
+        
+        m_file_name_list.resize( 0 );
+        
+        cv::utils::fs::glob_relative( 
+            cv::String(m_image_input_path), 
+            cv::String(""),
+            m_file_name_list,
+            false,
+            false );
+            
+        if (m_file_name_list.size() > 0)
+        {
+            ret = 0;
+        }
+        else
+        {
+            ret = -1;
+        }
+        
+        return ret;
+    }
+
+    const std::string & get_image_input_path(void)
+    {
+        return m_image_input_path;
+    }
+    
+    const std::string & get_image_output_path(void)
+    {
+        return m_image_output_path;
+    }
+    
+    const std::string & get_image_input_list( int index )
+    {
+        return m_image_input_list[index];
+    }
+    
+    const std::string & get_image_output_list( int index )
+    {
+        return m_image_output_list[index];
+    }
+    
+    int get_files_count( void )
+    {
+        return m_file_name_list.size();
+    }
+
+private:
+
+	void reset(void)
+	{
+        m_image_input_path = "./";
+        m_image_output_path = "./";
+        m_file_name_list.resize( 0 );
+        m_image_input_list.resize( 0 );
+        m_image_output_list.resize( 0 );
+	}
+
+	std::string m_image_input_path;
+    std::string m_image_output_path;
+    
+    std::vector< cv::String > m_file_name_list;
+    
+    std::vector< std::string > m_image_input_list;
+    std::vector< std::string > m_image_output_list;
+};
+
+static Config sg_config;
 
 extern "C" {
 
@@ -1303,6 +1543,70 @@ void show_acnhors(int number_of_boxes, int num_of_clusters, float *rel_width_hei
     cv::imshow("clusters", img);
     cv::waitKey(0);
     cv::destroyAllWindows();
+}
+
+int image_dir_generate_paths( const char * image_cfg )
+{
+    int ret = -1;
+    int status = 0;
+    
+    for(;;)
+    {
+        status = sg_config.load_from_file( image_cfg );
+        
+        if (0 != status)
+        {
+            break;
+        }    
+        
+        status = sg_config.gen_file_lists();
+        
+        if (0 != status)
+        {
+            break;
+        }    
+        
+        ret = 0;
+        break;
+    }
+    
+    return ret;
+}
+
+int image_dir_release_paths( void )
+{
+    int ret = 0;
+    
+    ret = sg_config.unload();
+    
+    return ret;
+}
+
+int image_dir_get_paths_count( void )
+{
+    int ret = 0;
+    
+    ret = sg_config.get_files_count();
+    
+    return ret;
+}
+
+const char * image_dir_get_input_path( int index )
+{
+    const char * ret = NULL;
+    
+    ret = sg_config.get_image_input_list( index ).c_str();
+    
+    return ret;
+}
+
+const char * image_dir_get_output_path( int index )
+{
+    const char * ret = NULL;
+    
+    ret = sg_config.get_image_output_list( index ).c_str();
+    
+    return ret;
 }
 
 }   // extern "C"

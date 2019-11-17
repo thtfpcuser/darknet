@@ -104,6 +104,12 @@ void blend_images_cv(image new_img, float alpha, image old_img, float beta);
 // Show Anchors
 void show_acnhors(int number_of_boxes, int num_of_clusters, float *rel_width_height_array, model anchors_data, int width, int height);
 
+int image_dir_generate_paths( const char * image_cfg );
+int image_dir_release_paths( void );
+int image_dir_get_paths_count( void );
+const char * image_dir_get_input_path( int index );
+const char * image_dir_get_output_path( int index );
+
 #else   // OPENCV
 
 int wait_key_cv(int delay);
